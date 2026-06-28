@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>認知機能検査 16枚の絵 練習</title>
+  <style>
+    body { font-family: "Hiragino Sans", "Yu Gothic", sans-serif; margin: 0; background: #f5fbff; color: #222; text-align: center; line-height: 1.7; }
+    .container { max-width: 900px; margin: 0 auto; padding: 18px; }
+    h1 { font-size: 26px; margin: 18px 0 8px; }
+    .lead { font-size: 18px; margin-bottom: 16px; }
+    .card { background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.08); margin-bottom: 18px; }
+    img { width: 100%; max-width: 820px; border-radius: 12px; border: 1px solid #d7e8f5; }
+    .image-locked { opacity: 0.25; filter: grayscale(100%) blur(1px); }
+    .start-area { margin: 10px 0 18px; }
+    button { font-size: 22px; padding: 14px 24px; margin: 10px 6px; border: none; border-radius: 12px; cursor: pointer; background: #1976d2; color: white; font-weight: bold; }
+    button.secondary { background: #666; }
+    button.hintBtn { background: #2e7d32; }
+    textarea { width: 95%; max-width: 760px; height: 180px; font-size: 22px; padding: 12px; border-radius: 12px; border: 2px solid #b8d8ef; box-sizing: border-box; }
+    .hint { font-size: 17px; color: #555; }
+    .progress { font-size: 21px; font-weight: bold; color: #1976d2; margin: 8px 0; }
+    .hint-box { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-width: 760px; margin: 10px auto 18px; }
+    .hint-item { background: #eef7ff; border: 2px solid #b8d8ef; border-radius: 12px; padding: 10px; font-size: 20px; font-weight: bold; }
+    .result { font-size: 22px; font-weight: bold; white-space: pre-line; margin-top: 14px; }
+    .answer-list { font-size: 18px; background: #eef7ff; border-radius: 12px; padding: 12px; margin-top: 12px; text-align: left; max-width: 760px; margin-left: auto; margin-right: auto; }
+    .notice { background: #fff8e1; border: 1px solid #f0d98c; border-radius: 12px; padding: 12px; font-size: 16px; margin-bottom: 14px; text-align: left; }
+    @media (max-width: 600px) {
+      h1 { font-size: 22px; }
+      .lead { font-size: 17px; }
+      button { width: 95%; font-size: 21px; }
+      textarea { height: 190px; font-size: 21px; }
+      .hint-box { grid-template-columns: 1fr; }
+      .hint-item { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="timerDisplay" style="font-size:22px; font-weight:bold; color:#d32f2f; margin:10px;">見る時間 60秒</div>
+
+    <h1>認知機能検査 16枚の絵 練習</h1>
+    <p class="lead">4枚ずつ絵を見て、最後に16枚をまとめて思い出す練習です。</p>
+
+    <div class="notice">
+      このページは練習用です。実際の検査と完全に同じ内容・手順・採点方法を再現するものではありません。絵を見て思い出す練習、分類から思い出す練習としてご利用ください。
+    </div>
+
+    <div class="start-area" id="startArea">
+      <p class="hint">まず音声を聞いてから、絵を覚えてください。</p>
+      <button onclick="startPractice()" id="startButton">音声を聞いて開始</button>
+    </div>
+
+    <div id="studyScreen" class="card">
+      <div id="pageProgress" class="progress">1 / 4ページ</div>
+      <img id="studyImage" class="image-locked" src="pattern-a1.png" alt="認知機能検査 練習画像">
+      <p class="hint" id="studyHint">音声を聞くと、絵がはっきり表示されます。</p>
+      <button onclick="nextPage()" id="nextButton" style="display:none;">次の4枚を見る</button>
+    </div>
+
+    <div id="answerScreen" class="card" style="display:none;">
+      <h2 id="answerTitle">ヒントなしで答えてください</h2>
+      <p class="hint" id="answerLead">覚えている絵を、できるだけ多く書いてください。</p>
+
+      <div id="hintArea" style="display:none;">
+        <p class="hint">分類のヒントです。この分類から絵を思い出してください。</p>
+        <div class="hint-box" id="hintBox"></div>
+      </div>
+
+      <p class="hint">ひらがな、カタカナ、漢字のいずれかで答えてください。</p>
+      <textarea id="userAnswer" placeholder="ここに入力してください"></textarea><br>
+      <button onclick="finishNoHint()" id="noHintFinishButton">ヒントなしの答え合わせ</button>
+      <button onclick="finishHint()" id="hintFinishButton" style="display:none;">ヒントありの答え合わせ</button>
+    </div>
+
+    <div id="resultScreen" class="card" style="display:none;">
+      <h2>結果</h2>
+      <div id="result" class="result"></div>
+      <div class="answer-list" id="answerList"></div>
+      <button onclick="resetPractice()">もう一度練習する</button>
+    </div>
+  </div>
+
+<script>
+const pages = [
+  {
+    image: "pattern-a1.png",
+    speech:
+      "これは、大砲です。これは、オルガンです。これは、耳です。これは、ラジオです。" +
+      "この中に、楽器があります。それは何ですか。オルガンですね。" +
+      "この中に、電気製品があります。それは何ですか。ラジオですね。" +
+      "この中に、戦いの武器があります。それは何ですか。大砲ですね。" +
+      "この中に、体の一部があります。それは何ですか。耳ですね。"
+  },
+  {
+    image: "pattern-a2.png",
+    speech:
+      "次のページにうつります。" +
+      "これは、テントウムシです。これは、ライオンです。これは、タケノコです。これは、フライパンです。" +
+      "この中に、動物がいます。それは何ですか。ライオンですね。" +
+      "この中に、野菜があります。それは何ですか。タケノコですね。" +
+      "この中に、昆虫がいます。それは何ですか。テントウムシですね。" +
+      "この中に、台所用品があります。それは何ですか。フライパンですね。"
+  },
+  {
+    image: "pattern-a3.png",
+    speech:
+      "次のページにうつります。" +
+      "これは、ものさしです。これは、オートバイです。これは、ブドウです。これは、スカートです。" +
+      "この中に、果物があります。それは何ですか。ブドウですね。" +
+      "この中に、文房具があります。それは何ですか。ものさしですね。" +
+      "この中に、乗り物があります。それは何ですか。オートバイですね。" +
+      "この中に、衣類があります。それは何ですか。スカートですね。"
+  },
+  {
+    image: "pattern-a4.png",
+    speech:
+      "次のページにうつります。" +
+      "これは、にわとりです。これは、バラです。これは、ペンチです。これは、ベッドです。" +
+      "この中に、大工道具があります。それは何ですか。ペンチですね。" +
+      "この中に、花があります。それは何ですか。バラですね。" +
+      "この中に、家具があります。それは何ですか。ベッドですね。" +
+      "この中に、鳥がいます。それは何ですか。にわとりですね。"
+  }
+];
+
+const correctAnswers = [
+  ["大砲", "たいほう", "タイホウ"],
+  ["オルガン", "おるがん"],
+  ["耳", "みみ", "ミミ"],
+  ["ラジオ", "らじお"],
+  ["テントウムシ", "てんとうむし", "てんとう虫", "テントウ虫"],
+  ["ライオン", "らいおん"],
+  ["タケノコ", "たけのこ", "竹の子", "筍"],
+  ["フライパン", "ふらいぱん"],
+  ["ものさし", "物差し", "モノサシ"],
+  ["オートバイ", "おーとばい", "バイク", "ばいく"],
+  ["ブドウ", "ぶどう", "葡萄"],
+  ["スカート", "すかーと"],
+  ["にわとり", "ニワトリ", "鶏"],
+  ["バラ", "ばら", "薔薇"],
+  ["ペンチ", "ぺんち"],
+  ["ベッド", "べっど", "ベット", "べっと"]
+];
+
+const hintCategories = [
+  "戦いの武器", "楽器", "体の一部", "電気製品",
+  "動物", "野菜", "昆虫", "台所用品",
+  "果物", "文房具", "乗り物", "衣類",
+  "大工道具", "花", "家具", "鳥"
+];
+
+let timer = null;
+let remainingSeconds = 60;
+let currentPage = 0;
+let noHintScore = 0;
+let hintScore = 0;
+let hintMissed = [];
+
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const voice = new SpeechSynthesisUtterance(text);
+  voice.lang = "ja-JP";
+  voice.rate = 0.85;
+  voice.pitch = 1;
+  speechSynthesis.speak(voice);
+}
+
+function startTimer(seconds, onTimeUp, label) {
+  clearInterval(timer);
+  remainingSeconds = seconds;
+  updateTimerDisplay(seconds, label);
+  timer = setInterval(() => {
+    remainingSeconds--;
+    updateTimerDisplay(seconds, label);
+    if (remainingSeconds <= 0) {
+      clearInterval(timer);
+      onTimeUp();
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay(limitSeconds, label = "見る時間") {
+  document.getElementById("timerDisplay").innerText =
+    label + " " + limitSeconds + "秒　残り " + remainingSeconds + "秒";
+}
+
+function stopTimer() {
+  clearInterval(timer);
+}
+
+function showOnly(screenId) {
+  document.getElementById("studyScreen").style.display = "none";
+  document.getElementById("answerScreen").style.display = "none";
+  document.getElementById("resultScreen").style.display = "none";
+  document.getElementById(screenId).style.display = "block";
+}
+
+function setStudyPage() {
+  document.getElementById("studyImage").src = pages[currentPage].image;
+  document.getElementById("pageProgress").innerText = (currentPage + 1) + " / " + pages.length + "ページ";
+  document.getElementById("studyImage").classList.add("image-locked");
+  document.getElementById("nextButton").style.display = "none";
+  document.getElementById("studyHint").innerText = "音声を聞くと、絵がはっきり表示されます。";
+  document.getElementById("startArea").style.display = currentPage === 0 ? "block" : "none";
+}
+
+function startPractice() {
+  document.getElementById("startButton").style.display = "none";
+  revealAndReadPage();
+}
+
+function revealAndReadPage() {
+  document.getElementById("studyImage").classList.remove("image-locked");
+  document.getElementById("nextButton").style.display = "inline-block";
+  document.getElementById("studyHint").innerText = "覚えたら、下のボタンを押してください。";
+  document.getElementById("nextButton").innerText =
+    currentPage < pages.length - 1 ? "次の4枚を見る" : "16枚を回答する";
+
+  speak(pages[currentPage].speech);
+  startTimer(60, nextPage, "見る時間");
+}
+
+function nextPage() {
+  stopTimer();
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+
+  if (currentPage < pages.length - 1) {
+    currentPage++;
+    setStudyPage();
+    showOnly("studyScreen");
+    setTimeout(revealAndReadPage, 300);
+  } else {
+    goNoHintAnswer();
+  }
+}
+
+function goNoHintAnswer() {
+  stopTimer();
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+
+  showOnly("answerScreen");
+  document.getElementById("startArea").style.display = "none";
+  document.getElementById("hintArea").style.display = "none";
+  document.getElementById("userAnswer").value = "";
+  document.getElementById("answerTitle").innerText = "ヒントなしで答えてください";
+  document.getElementById("answerLead").innerText = "覚えている絵を、できるだけ多く書いてください。";
+  document.getElementById("noHintFinishButton").style.display = "inline-block";
+  document.getElementById("hintFinishButton").style.display = "none";
+
+  speak("覚えている絵を、できるだけ多く書いてください。");
+  startTimer(60, finishNoHint, "回答時間");
+  document.getElementById("userAnswer").focus();
+}
+
+function finishNoHint() {
+  stopTimer();
+  const result = scoreAnswer(document.getElementById("userAnswer").value);
+  noHintScore = result.score;
+  goHintAnswer();
+}
+
+function goHintAnswer() {
+  showOnly("answerScreen");
+  document.getElementById("userAnswer").value = "";
+  document.getElementById("answerTitle").innerText = "分類のヒントを見て答えてください";
+  document.getElementById("answerLead").innerText = "分類を手がかりに、思い出せる絵を書いてください。";
+  document.getElementById("hintArea").style.display = "block";
+  document.getElementById("noHintFinishButton").style.display = "none";
+  document.getElementById("hintFinishButton").style.display = "inline-block";
+
+  const hintBox = document.getElementById("hintBox");
+  hintBox.innerHTML = "";
+  hintCategories.forEach(category => {
+    const div = document.createElement("div");
+    div.className = "hint-item";
+    div.innerText = category;
+    hintBox.appendChild(div);
+  });
+
+  speak("次は分類のヒントを見て答えてください。");
+  startTimer(60, finishHint, "回答時間");
+  document.getElementById("userAnswer").focus();
+}
+
+function finishHint() {
+  stopTimer();
+  const result = scoreAnswer(document.getElementById("userAnswer").value);
+  hintScore = result.score;
+  hintMissed = result.missed;
+  showResult();
+}
+
+function scoreAnswer(text) {
+  let score = 0;
+  let missed = [];
+  correctAnswers.forEach(group => {
+    const isCorrect = group.some(word => text.includes(word));
+    if (isCorrect) score++;
+    else missed.push(group[0]);
+  });
+  return { score, missed };
+}
+
+function showResult() {
+  showOnly("resultScreen");
+  document.getElementById("timerDisplay").innerText = "終了";
+
+  let message =
+    "ヒントなし：" + noHintScore + " / " + correctAnswers.length +
+    "\nヒントあり：" + hintScore + " / " + correctAnswers.length;
+
+  if (hintMissed.length === 0) {
+    message += "\nすべて正解です。";
+  } else {
+    message += "\nヒントありで思い出せなかったもの：" + hintMissed.join("、");
+  }
+
+  document.getElementById("result").innerText = message;
+
+  document.getElementById("answerList").innerHTML =
+    "<strong>正解一覧</strong><br>" +
+    "大砲、オルガン、耳、ラジオ、" +
+    "テントウムシ、ライオン、タケノコ、フライパン、" +
+    "ものさし、オートバイ、ブドウ、スカート、" +
+    "にわとり、バラ、ペンチ、ベッド";
+
+  speak(message);
+}
+
+function resetPractice() {
+  stopTimer();
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+
+  currentPage = 0;
+  noHintScore = 0;
+  hintScore = 0;
+  hintMissed = [];
+  document.getElementById("userAnswer").value = "";
+  document.getElementById("startButton").style.display = "inline-block";
+  setStudyPage();
+  showOnly("studyScreen");
+  remainingSeconds = 60;
+  updateTimerDisplay(60, "見る時間");
+}
+
+window.onload = function() {
+  setStudyPage();
+  showOnly("studyScreen");
+  remainingSeconds = 60;
+  updateTimerDisplay(60, "見る時間");
+};
+</script>
+</body>
+</html>
